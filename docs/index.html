@@ -302,6 +302,7 @@
       <label for="busca">Buscar</label>
       <input type="search" id="busca" placeholder="título, fonte, resumo...">
     </div>
+    <button id="export-btn" style="font-size:0.82rem; color:#fff; background:var(--navy); border:1px solid var(--navy); padding:0.45rem 0.9rem; border-radius:6px; cursor:pointer; font-weight:600;">⬇ Exportar CSV</button>
     <button id="clear-btn">Limpar tudo</button>
   </div>
 
@@ -335,6 +336,7 @@ const REPO_BRANCH = 'main';
 const PASTA_BOLETINS = 'boletins';
 
 let itens = []; // { titulo, data, fonte, link, relevancia, resumo, impacto }
+let itensFiltradosAtual = []; // atualizado a cada render(), usado na exportação
 
 // ---------- Parser de CSV robusto (lida com aspas e vírgulas dentro de campos) ----------
 function parseCSV(text) {
@@ -422,6 +424,8 @@ function render() {
   // ordena: relevância (alta primeiro) depois data desc
   const ordemRel = { Alta: 0, Média: 1, Baixa: 2 };
   filtrados.sort((a, b) => (ordemRel[a.relevancia] - ordemRel[b.relevancia]) || (b.data || '').localeCompare(a.data || ''));
+
+  itensFiltradosAtual = filtrados;
 
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = filtrados.map(it => `
@@ -540,6 +544,46 @@ document.getElementById('toggle-dropzone').addEventListener('click', () => {
   dz.style.display = dz.style.display === 'none' ? 'block' : 'none';
 });
 document.getElementById('refresh-btn').addEventListener('click', carregarDoGitHub);
+
+// ---------- Exportar CSV (respeita os filtros atuais) ----------
+function campoCsv(valor) {
+  const texto = (valor ?? '').toString();
+  if (/[",\n]/.test(texto)) {
+    return '"' + texto.replace(/"/g, '""') + '"';
+  }
+  return texto;
+}
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  if (!itensFiltradosAtual.length) {
+    alert('Não há itens para exportar com os filtros atuais.');
+    return;
+  }
+  const cabecalho = ['Título', 'Data', 'Fonte', 'Link', 'Classificação de Relevância', 'Resumo', 'Possível Impacto para a CloudWalk'];
+  const linhas = [cabecalho.join(',')];
+  for (const it of itensFiltradosAtual) {
+    linhas.push([
+      campoCsv(it.titulo),
+      campoCsv(it.data),
+      campoCsv(it.fonte),
+      campoCsv(it.link),
+      campoCsv(it.relevancia),
+      campoCsv(it.resumo),
+      campoCsv(it.impacto),
+    ].join(','));
+  }
+  const csvTexto = '\uFEFF' + linhas.join('\r\n'); // BOM p/ acentuação abrir certo no Excel
+  const blob = new Blob([csvTexto], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const hoje = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `boletim_filtrado_${hoje}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
 
 // carrega automaticamente assim que a página abre
 carregarDoGitHub();
