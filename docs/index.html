@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boletim Regulatório · CloudWalk</title>
+<style>
+  /* ============================================================
+     CORES DA MARCA — ajuste aqui se tiver os hex exatos da
+     CloudWalk/InfinitePay. Tudo no resto do arquivo usa essas
+     variáveis, então mudar aqui já atualiza o painel inteiro.
+     ============================================================ */
+  :root {
+    --brand: #00d072;        /* verde principal (aproximado) */
+    --brand-dark: #00a85c;   /* verde mais escuro, para hover/detalhes */
+    --navy-deep: #0b1f17;    /* fundo do cabeçalho (verde-preto bem escuro) */
+    --navy: #0f3d2e;         /* azul/verde escuro secundário, usado em links */
+
+    --ink: #16211c;
+    --ink-soft: #52685e;
+    --paper: #f5f7f5;
+    --paper-raised: #ffffff;
+    --line: #d9e3dc;
+
+    --alta: #c23b3b;
+    --alta-bg: #fbe6e6;
+    --media: #b8791a;
+    --media-bg: #fbf0dd;
+    --baixa: var(--brand-dark);
+    --baixa-bg: #e2f8ec;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--navy-deep);
+    color: #eafaf1;
+    padding: 2.2rem 2.5rem 1.8rem;
+    border-bottom: 4px solid var(--brand);
+  }
+
+  header .eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brand);
+    margin-bottom: 0.4rem;
+    font-weight: 700;
+  }
+
+  header h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 2.1rem;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  header p {
+    margin: 0.5rem 0 0;
+    color: #c3cedb;
+    font-size: 0.95rem;
+    max-width: 640px;
+    line-height: 1.5;
+  }
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 2rem 2.5rem 4rem;
+  }
+
+  /* --- Drop zone --- */
+  #dropzone {
+    border: 2px dashed var(--line);
+    border-radius: 10px;
+    padding: 2.2rem;
+    text-align: center;
+    background: var(--paper-raised);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  #dropzone.dragover {
+    border-color: var(--brand-dark);
+    background: #eafaf1;
+  }
+  #dropzone strong { color: var(--ink); }
+  #dropzone input { display: none; }
+  #dropzone .hint {
+    font-size: 0.82rem;
+    margin-top: 0.4rem;
+    color: #7a8b81;
+  }
+
+  /* --- Summary stats --- */
+  #summary {
+    display: none;
+    margin-top: 1.8rem;
+    gap: 1rem;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  #summary.visible { display: grid; }
+  .stat {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+  }
+  .stat .n {
+    font-family: Georgia, serif;
+    font-size: 1.8rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .stat .label {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-top: 0.35rem;
+  }
+  .stat.alta .n { color: var(--alta); }
+  .stat.media .n { color: var(--media); }
+  .stat.baixa .n { color: var(--baixa); }
+
+  /* --- Filters --- */
+  #controls {
+    display: none;
+    margin-top: 1.6rem;
+    padding: 1.1rem 1.3rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    align-items: flex-end;
+  }
+  #controls.visible { display: flex; }
+  .field { display: flex; flex-direction: column; gap: 0.3rem; }
+  .field label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .field input[type="date"],
+  .field input[type="search"] {
+    font-family: inherit;
+    font-size: 0.88rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .field input[type="search"] { min-width: 220px; }
+
+  .chip-group { display: flex; gap: 0.4rem; }
+  .chip {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    cursor: pointer;
+    user-select: none;
+    color: var(--ink-soft);
+  }
+  .chip.active[data-rel="Alta"] { background: var(--alta); border-color: var(--alta); color: #fff; }
+  .chip.active[data-rel="Média"] { background: var(--media); border-color: var(--media); color: #fff; }
+  .chip.active[data-rel="Baixa"] { background: var(--baixa); border-color: var(--baixa); color: #fff; }
+
+  #clear-btn {
+    margin-left: auto;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    background: none;
+    border: 1px solid var(--line);
+    padding: 0.45rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #clear-btn:hover { border-color: var(--ink-soft); }
+
+  /* --- Table --- */
+  #table-wrap {
+    display: none;
+    margin-top: 1.6rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  #table-wrap.visible { display: block; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    background: #e3f2e8;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr { border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f2fbf5; }
+  td { padding: 0.85rem 1rem; font-size: 0.88rem; line-height: 1.45; }
+
+  td.titulo { font-weight: 600; max-width: 260px; }
+  td.titulo a { color: var(--navy); text-decoration: none; }
+  td.titulo a:hover { color: var(--brand-dark); text-decoration: underline; }
+  td.data { white-space: nowrap; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  td.fonte { color: var(--ink-soft); max-width: 150px; }
+  td.resumo, td.impacto { max-width: 280px; color: var(--ink-soft); }
+
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge.Alta { background: var(--alta-bg); color: var(--alta); }
+  .badge.Média { background: var(--media-bg); color: var(--media); }
+  .badge.Baixa { background: var(--baixa-bg); color: var(--baixa); }
+
+  #empty-filtered {
+    display: none;
+    padding: 2.5rem;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+
+  footer {
+    text-align: center;
+    color: #7a8b81;
+    font-size: 0.78rem;
+    margin-top: 2.5rem;
+  }
+
+  @media (max-width: 720px) {
+    header, main { padding-left: 1.2rem; padding-right: 1.2rem; }
+    #summary { grid-template-columns: repeat(2, 1fr); }
+    td.resumo, td.impacto, td.fonte { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">CloudWalk · Compliance regulatório</div>
+  <h1>Boletim Regulatório</h1>
+  <p id="header-status">Carregando os boletins mais recentes do repositório...</p>
+</header>
+
+<main>
+  <div id="dropzone" style="display:none;">
+    <div><strong>Arraste arquivos CSV extras aqui</strong>, ou clique para escolher</div>
+    <div class="hint">Use isto só para adicionar um CSV que ainda não foi commitado no repositório</div>
+    <input type="file" id="file-input" accept=".csv" multiple>
+  </div>
+  <button id="toggle-dropzone" style="margin-bottom:1rem; font-size:0.8rem; background:none; border:1px solid var(--line); border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer; color:var(--ink-soft);">+ Adicionar CSV manualmente</button>
+  <button id="refresh-btn" style="margin-bottom:1rem; margin-left:0.5rem; font-size:0.8rem; background:var(--brand); border:1px solid var(--brand-dark); border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer; color:#fff; font-weight:600;">↻ Atualizar agora</button>
+
+  <div id="summary">
+    <div class="stat"><div class="n" id="stat-total">0</div><div class="label">Itens carregados</div></div>
+    <div class="stat alta"><div class="n" id="stat-alta">0</div><div class="label">Relevância alta</div></div>
+    <div class="stat media"><div class="n" id="stat-media">0</div><div class="label">Relevância média</div></div>
+    <div class="stat baixa"><div class="n" id="stat-baixa">0</div><div class="label">Relevância baixa</div></div>
+  </div>
+
+  <div id="controls">
+    <div class="field">
+      <label for="data-de">De</label>
+      <input type="date" id="data-de">
+    </div>
+    <div class="field">
+      <label for="data-ate">Até</label>
+      <input type="date" id="data-ate">
+    </div>
+    <div class="field">
+      <label>Relevância</label>
+      <div class="chip-group">
+        <div class="chip active" data-rel="Alta">Alta</div>
+        <div class="chip active" data-rel="Média">Média</div>
+        <div class="chip active" data-rel="Baixa">Baixa</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="busca">Buscar</label>
+      <input type="search" id="busca" placeholder="título, fonte, resumo...">
+    </div>
+    <button id="clear-btn">Limpar tudo</button>
+  </div>
+
+  <div id="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Título</th>
+          <th>Data</th>
+          <th>Fonte</th>
+          <th>Relevância</th>
+          <th>Resumo</th>
+          <th>Impacto p/ CloudWalk</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty-filtered">Nenhum item corresponde aos filtros atuais.</div>
+  </div>
+
+  <footer>Painel local · os dados ficam só no seu navegador, nada é salvo ou enviado</footer>
+</main>
+
+<script>
+// ============================================================
+// Config do repositório — ajuste se mudar de nome/dono/branch
+// ============================================================
+const REPO_OWNER = 'rabeloffernanda-monitoramento';
+const REPO_NAME = 'Monitoramento-Regulat-rio-com-IA';
+const REPO_BRANCH = 'main';
+const PASTA_BOLETINS = 'boletins';
+
+let itens = []; // { titulo, data, fonte, link, relevancia, resumo, impacto }
+
+// ---------- Parser de CSV robusto (lida com aspas e vírgulas dentro de campos) ----------
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.length > 1 || (r.length === 1 && r[0].trim() !== ''));
+}
+
+function normalizarRelevancia(v) {
+  const s = (v || '').trim().toLowerCase();
+  if (s.startsWith('alta')) return 'Alta';
+  if (s.startsWith('m')) return 'Média';
+  if (s.startsWith('baixa')) return 'Baixa';
+  return 'Baixa';
+}
+
+function processarArquivo(nomeArquivo, texto) {
+  const rows = parseCSV(texto);
+  if (rows.length < 2) return 0;
+  const header = rows[0].map(h => h.trim().toLowerCase());
+  const idx = {
+    titulo: header.findIndex(h => h.includes('título') || h.includes('titulo')),
+    data: header.findIndex(h => h === 'data'),
+    fonte: header.findIndex(h => h.includes('fonte')),
+    link: header.findIndex(h => h.includes('link')),
+    relevancia: header.findIndex(h => h.includes('relev')),
+    resumo: header.findIndex(h => h.includes('resumo')),
+    impacto: header.findIndex(h => h.includes('impacto')),
+  };
+  let novos = 0;
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.every(c => c.trim() === '')) continue;
+    const item = {
+      titulo: idx.titulo >= 0 ? row[idx.titulo] : '',
+      data: idx.data >= 0 ? row[idx.data] : '',
+      fonte: idx.fonte >= 0 ? row[idx.fonte] : '',
+      link: idx.link >= 0 ? row[idx.link] : '',
+      relevancia: normalizarRelevancia(idx.relevancia >= 0 ? row[idx.relevancia] : ''),
+      resumo: idx.resumo >= 0 ? row[idx.resumo] : '',
+      impacto: idx.impacto >= 0 ? row[idx.impacto] : '',
+      _origem: nomeArquivo,
+    };
+    if (item.titulo) { itens.push(item); novos++; }
+  }
+  return novos;
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function render() {
+  const de = document.getElementById('data-de').value;
+  const ate = document.getElementById('data-ate').value;
+  const busca = document.getElementById('busca').value.trim().toLowerCase();
+  const relsAtivas = Array.from(document.querySelectorAll('.chip.active')).map(c => c.dataset.rel);
+
+  let filtrados = itens.filter(it => {
+    if (de && it.data && it.data < de) return false;
+    if (ate && it.data && it.data > ate) return false;
+    if (!relsAtivas.includes(it.relevancia)) return false;
+    if (busca) {
+      const alvo = (it.titulo + ' ' + it.fonte + ' ' + it.resumo + ' ' + it.impacto).toLowerCase();
+      if (!alvo.includes(busca)) return false;
+    }
+    return true;
+  });
+
+  // ordena: relevância (alta primeiro) depois data desc
+  const ordemRel = { Alta: 0, Média: 1, Baixa: 2 };
+  filtrados.sort((a, b) => (ordemRel[a.relevancia] - ordemRel[b.relevancia]) || (b.data || '').localeCompare(a.data || ''));
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = filtrados.map(it => `
+    <tr>
+      <td class="titulo">${it.link ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener">${escapeHtml(it.titulo)}</a>` : escapeHtml(it.titulo)}</td>
+      <td class="data">${escapeHtml(it.data)}</td>
+      <td class="fonte">${escapeHtml(it.fonte)}</td>
+      <td><span class="badge ${it.relevancia}">${it.relevancia}</span></td>
+      <td class="resumo">${escapeHtml(it.resumo)}</td>
+      <td class="impacto">${escapeHtml(it.impacto)}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('empty-filtered').style.display = filtrados.length ? 'none' : 'block';
+  document.querySelector('table').style.display = filtrados.length ? 'table' : 'none';
+
+  // stats sobre o total carregado (não filtrado), pra dar visão geral
+  document.getElementById('stat-total').textContent = itens.length;
+  document.getElementById('stat-alta').textContent = itens.filter(i => i.relevancia === 'Alta').length;
+  document.getElementById('stat-media').textContent = itens.filter(i => i.relevancia === 'Média').length;
+  document.getElementById('stat-baixa').textContent = itens.filter(i => i.relevancia === 'Baixa').length;
+}
+
+function mostrarPainel() {
+  document.getElementById('summary').classList.add('visible');
+  document.getElementById('controls').classList.add('visible');
+  document.getElementById('table-wrap').classList.add('visible');
+}
+
+async function lidarComArquivos(fileList) {
+  let totalNovos = 0;
+  for (const file of fileList) {
+    if (!file.name.toLowerCase().endsWith('.csv')) continue;
+    const texto = await file.text();
+    totalNovos += processarArquivo(file.name, texto);
+  }
+  if (itens.length) {
+    mostrarPainel();
+    render();
+  }
+}
+
+// ---------- Auto-carregamento direto do GitHub ----------
+async function carregarDoGitHub() {
+  const status = document.getElementById('header-status');
+  try {
+    const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${PASTA_BOLETINS}?ref=${REPO_BRANCH}`;
+    const respLista = await fetch(apiUrl);
+    if (!respLista.ok) throw new Error(`GitHub API respondeu ${respLista.status}`);
+    const arquivos = (await respLista.json()).filter(f => f.name.toLowerCase().endsWith('.csv'));
+
+    if (!arquivos.length) {
+      status.textContent = 'Nenhum boletim encontrado ainda na pasta boletins/ do repositório.';
+      return;
+    }
+
+    itens = [];
+    let falhas = 0;
+    for (const arquivo of arquivos) {
+      try {
+        const rawUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/${PASTA_BOLETINS}/${arquivo.name}`;
+        const respCsv = await fetch(rawUrl);
+        if (!respCsv.ok) { falhas++; continue; }
+        const texto = await respCsv.text();
+        processarArquivo(arquivo.name, texto);
+      } catch (e) { falhas++; }
+    }
+
+    if (itens.length) {
+      mostrarPainel();
+      render();
+      status.textContent = `${arquivos.length} boletim(ns) carregado(s) automaticamente do repositório` + (falhas ? ` (${falhas} falharam ao carregar)` : '') + '.';
+    } else {
+      status.textContent = 'Os arquivos foram encontrados, mas não foi possível ler o conteúdo. Tente atualizar novamente.';
+    }
+  } catch (e) {
+    status.innerHTML = `Não foi possível carregar os boletins automaticamente (${e.message}). Use o botão "Adicionar CSV manualmente" abaixo como alternativa, ou confirme que o repositório está público.`;
+  }
+}
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => lidarComArquivos(e.target.files));
+
+['dragenter', 'dragover'].forEach(evt =>
+  dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('dragover'); })
+);
+['dragleave', 'drop'].forEach(evt =>
+  dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('dragover'); })
+);
+dropzone.addEventListener('drop', e => {
+  if (e.dataTransfer.files.length) lidarComArquivos(e.dataTransfer.files);
+});
+
+document.getElementById('data-de').addEventListener('change', render);
+document.getElementById('data-ate').addEventListener('change', render);
+document.getElementById('busca').addEventListener('input', render);
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => { chip.classList.toggle('active'); render(); });
+});
+document.getElementById('clear-btn').addEventListener('click', () => {
+  itens = [];
+  document.getElementById('data-de').value = '';
+  document.getElementById('data-ate').value = '';
+  document.getElementById('busca').value = '';
+  document.querySelectorAll('.chip').forEach(c => c.classList.add('active'));
+  document.getElementById('summary').classList.remove('visible');
+  document.getElementById('controls').classList.remove('visible');
+  document.getElementById('table-wrap').classList.remove('visible');
+});
+
+document.getElementById('toggle-dropzone').addEventListener('click', () => {
+  const dz = document.getElementById('dropzone');
+  dz.style.display = dz.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('refresh-btn').addEventListener('click', carregarDoGitHub);
+
+// carrega automaticamente assim que a página abre
+carregarDoGitHub();
+</script>
+
+</body>
+</html>
