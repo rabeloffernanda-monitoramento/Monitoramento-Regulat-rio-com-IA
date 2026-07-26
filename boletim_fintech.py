@@ -126,16 +126,19 @@ Regras de seleção:
 Para cada item relevante, extraia:
 - categoria: uma das categorias acima, use o texto exato.
 - titulo, fonte, data (AAAA-MM-DD), link.
-- resumo: objetivo, até 2 frases, explicando o impacto prático para uma
-  fintech.
+- resumo: objetivo, MÁXIMO 1 frase curta (até ~25 palavras), explicando o
+  impacto prático para uma fintech.
 - relevancia: classifique como "Alta", "Média" ou "Baixa" segundo os
   critérios abaixo, específicos para a CloudWalk (IP / SCFI, instituição
   S4):
 {CRITERIOS_RELEVANCIA}
-- justificativa: uma frase objetiva explicando por que a notícia é
-  relevante (ou não) especificamente para a CloudWalk, usando a lógica dos
-  critérios acima (ex.: risco de conformidade, competitividade/eficiência,
-  ou apenas contexto macro).
+- justificativa: MÁXIMO 1 frase curta (até ~20 palavras) explicando por que
+  a notícia é relevante (ou não) especificamente para a CloudWalk.
+
+Seja conciso em todos os campos de texto -- isso é um boletim rápido de
+leitura, não um relatório detalhado. Se houver muitos itens relevantes,
+priorize os até 12 mais importantes (priorizando relevância Alta, depois
+Média) em vez de listar tudo.
 
 Ao final, responda APENAS com um JSON válido, sem texto antes ou depois, e
 sem envolver em blocos de código markdown (nada de ```json ou ```). A
@@ -147,13 +150,20 @@ MODEL = "claude-sonnet-5"
 
 
 def _localizar_uvx() -> str:
+    """Acha o executável uvx: primeiro no PATH (funciona no GitHub Actions
+    e em Macs onde o PATH está configurado certo), com fallback para o
+    caminho padrão de instalação do uv em ~/.local/bin (útil quando o PATH
+    da sessão do terminal não foi recarregado)."""
     encontrado = shutil.which("uvx")
     if encontrado:
         return encontrado
     caminho_padrao = os.path.expanduser("~/.local/bin/uvx")
     if os.path.exists(caminho_padrao):
         return caminho_padrao
-    raise RuntimeError("uvx nao encontrado no PATH nem em ~/.local/bin/uvx")
+    raise RuntimeError(
+        "uvx não encontrado no PATH nem em ~/.local/bin/uvx. "
+        "Instale com: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    )
 
 
 async def coletar_boletim() -> list[dict]:
@@ -204,7 +214,7 @@ async def coletar_boletim() -> list[dict]:
             for turno in range(1, MAX_TURNOS + 1):
                 response = client.messages.create(
                     model=MODEL,
-                    max_tokens=8000,
+                    max_tokens=16000,
                     system=SYSTEM_PROMPT,
                     tools=tools,
                     messages=messages,
@@ -216,6 +226,13 @@ async def coletar_boletim() -> list[dict]:
                     print(f"  [turno {turno}] chamando: {', '.join(chamadas)}")
                 else:
                     print(f"  [turno {turno}] resposta final (stop_reason={response.stop_reason})")
+
+                if response.stop_reason == "max_tokens":
+                    raise RuntimeError(
+                        "A resposta do Claude foi cortada por atingir o limite de "
+                        "max_tokens antes de terminar o JSON. Aumente max_tokens "
+                        "no script ou peça respostas mais concisas no prompt."
+                    )
 
                 if response.stop_reason != "tool_use":
                     break
