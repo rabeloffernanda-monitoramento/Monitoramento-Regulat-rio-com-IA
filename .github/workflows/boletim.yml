@@ -1,0 +1,52 @@
+name: Boletim regulatório diário
+
+on:
+  schedule:
+    - cron: "0 11 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  gerar-boletim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install mcp-brasil mcp anthropic
+
+      - name: Instalar uv/uvx (necessário para subir o servidor MCP Brasil)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Rodar boletim
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python boletim_fintech.py
+
+      - name: Subir CSV como artefato do workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: boletim-${{ github.run_id }}
+          path: boletim_*.csv
+          retention-days: 90
+
+      - name: Commitar CSV no histórico do repositório
+        run: |
+          mkdir -p boletins
+          mv boletim_*.csv boletins/
+          git config user.name "boletim-bot"
+          git config user.email "boletim-bot@users.noreply.github.com"
+          git add boletins/
+          git diff --cached --quiet && echo "Nada novo para commitar" || git commit -m "Boletim regulatório $(date -u +%F)"
+          git push
