@@ -464,41 +464,41 @@ async function lidarComArquivos(fileList) {
   }
 }
 
-// ---------- Auto-carregamento direto do GitHub ----------
+// ---------- Auto-carregamento direto do GitHub (via raw, sem limite de API) ----------
 async function carregarDoGitHub() {
   const status = document.getElementById('header-status');
   try {
-    const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${PASTA_BOLETINS}?ref=${REPO_BRANCH}`;
-    const respLista = await fetch(apiUrl);
-    if (!respLista.ok) throw new Error(`GitHub API respondeu ${respLista.status}`);
-    const arquivos = (await respLista.json()).filter(f => f.name.toLowerCase().endsWith('.csv'));
+    const indexUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/${PASTA_BOLETINS}/index.json?t=${Date.now()}`;
+    const respIndice = await fetch(indexUrl, { cache: 'no-store' });
+    if (!respIndice.ok) throw new Error(`índice não encontrado (${respIndice.status})`);
+    const nomesArquivos = await respIndice.json();
 
-    if (!arquivos.length) {
+    if (!nomesArquivos.length) {
       status.textContent = 'Nenhum boletim encontrado ainda na pasta boletins/ do repositório.';
       return;
     }
 
     itens = [];
     let falhas = 0;
-    for (const arquivo of arquivos) {
+    for (const nome of nomesArquivos) {
       try {
-        const rawUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/${PASTA_BOLETINS}/${arquivo.name}`;
-        const respCsv = await fetch(rawUrl);
+        const rawUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/${PASTA_BOLETINS}/${nome}?t=${Date.now()}`;
+        const respCsv = await fetch(rawUrl, { cache: 'no-store' });
         if (!respCsv.ok) { falhas++; continue; }
         const texto = await respCsv.text();
-        processarArquivo(arquivo.name, texto);
+        processarArquivo(nome, texto);
       } catch (e) { falhas++; }
     }
 
     if (itens.length) {
       mostrarPainel();
       render();
-      status.textContent = `${arquivos.length} boletim(ns) carregado(s) automaticamente do repositório` + (falhas ? ` (${falhas} falharam ao carregar)` : '') + '.';
+      status.textContent = `${nomesArquivos.length} boletim(ns) carregado(s) automaticamente do repositório` + (falhas ? ` (${falhas} falharam ao carregar)` : '') + '.';
     } else {
       status.textContent = 'Os arquivos foram encontrados, mas não foi possível ler o conteúdo. Tente atualizar novamente.';
     }
   } catch (e) {
-    status.innerHTML = `Não foi possível carregar os boletins automaticamente (${e.message}). Use o botão "Adicionar CSV manualmente" abaixo como alternativa, ou confirme que o repositório está público.`;
+    status.innerHTML = `Não foi possível carregar os boletins automaticamente (${e.message}). Use o botão "Adicionar CSV manualmente" abaixo como alternativa.`;
   }
 }
 
