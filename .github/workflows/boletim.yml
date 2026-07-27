@@ -6,7 +6,7 @@ on:
     # GitHub Actions só agenda em UTC, então usamos 11:00 UTC.
     # Em horário de verão local (se voltar a existir) o horário efetivo muda;
     # ajuste o cron abaixo se precisar de precisão exata.
-    - cron: "0 11 * * 1-5"   # segunda a sexta
+    - cron: "17 11 * * 1-5"   # segunda a sexta
   workflow_dispatch: {}       # permite rodar manualmente pelo botão "Run workflow"
 
 permissions:
